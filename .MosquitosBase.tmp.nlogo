@@ -109,7 +109,7 @@ to go
   ask mosquitos with [not ya-pico?] [
     rt random 100
     lt random 100
-    fd 0.5
+    fd (velocidad-mosquito-ticks * mul_ticks)
   ]
 
   ask mosquitos with[ya-pico?] [
@@ -329,7 +329,7 @@ cant-charcos
 cant-charcos
 0
 100
-14.0
+80.0
 1
 1
 NIL
@@ -344,7 +344,7 @@ cant-mosquitos
 cant-mosquitos
 1
 1000
-423.0
+1000.0
 1
 1
 NIL
@@ -665,6 +665,21 @@ tiempo-max-incubacion
 1
 1
 En dias
+HORIZONTAL
+
+SLIDER
+233
+620
+570
+654
+velocidad-mosquito-ticks
+velocidad-mosquito-ticks
+0.01
+2
+0.21
+0.2
+1
+NIL
 HORIZONTAL
 
 @#$#@#$#@

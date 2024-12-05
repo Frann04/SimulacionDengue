@@ -81,7 +81,7 @@ to setup
   create-mosquitos cant-mosquitos [
     setxy random-xcor random-ycor
     set color yellow
-    set shape "bicho"
+    set shape "mosquito"
     set ya-pico? false
     set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks) ;; vivira entre max y min (parametros de entrada)
       ;; Agregar el nuevo valor a la lista
@@ -205,7 +205,7 @@ end
 to generar-mosquitos [infectados?]
   hatch-mosquitos cantidad-de-huevos-por-charco [
     set color yellow
-    set shape "bicho"
+    set shape "mosquito"
     set ya-pico? false
     set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks) ;; vivira entre max y min (parametros de entrada)
     set cant-picaduras 0
@@ -235,7 +235,7 @@ to incubar-huevos
         ;; Generar hasta 10 mosquitos si el huevo ha estado suficiente tiempo
         hatch-mosquitos 10 [
           set color yellow
-          set shape "bicho"
+          set shape "mosquito"
           set ya-pico? false
           set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks)
           set cant-picaduras 0
@@ -269,8 +269,8 @@ end
 GRAPHICS-WINDOW
 1167
 12
-1839
-685
+1838
+684
 -1
 -1
 13.0
@@ -617,7 +617,7 @@ SLIDER
 8
 530
 274
-564
+563
 duracion-max-enfermedad
 duracion-max-enfermedad
 7
@@ -650,7 +650,7 @@ SLIDER
 548
 488
 810
-522
+521
 duracion-min-inmunidad
 duracion-min-inmunidad
 1
@@ -665,7 +665,7 @@ SLIDER
 546
 446
 811
-480
+479
 duracion-max-inmunidad
 duracion-max-inmunidad
 10
@@ -680,7 +680,7 @@ SLIDER
 289
 448
 539
-482
+481
 tiempo-min-incubacion
 tiempo-min-incubacion
 7
@@ -695,7 +695,7 @@ SLIDER
 290
 487
 537
-521
+520
 tiempo-max-incubacion
 tiempo-max-incubacion
 7
@@ -710,7 +710,7 @@ SLIDER
 233
 620
 570
-654
+653
 velocidad-mosquito-ticks
 velocidad-mosquito-ticks
 0.01
@@ -772,15 +772,6 @@ arrow
 true
 0
 Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
-
-bicho
-true
-0
-Polygon -7500403 true true 180 120 210 120 255 120 278 141 273 175 240 180 210 165 180 150 150 150 150 135
-Polygon -7500403 true true 150 105 132 169 120 210 126 233 150 256 172 236 180 210 168 167
-Circle -7500403 true true 135 90 30
-Polygon -7500403 true true 120 121 90 121 45 121 26 139 29 173 60 181 90 166 120 151 150 151 150 136
-Polygon -7500403 true true 141 105 150 30 158 105 150 105
 
 box
 false
@@ -921,6 +912,12 @@ true
 0
 Line -7500403 true 150 0 150 150
 
+mosquito
+false
+0
+Polygon -7500403 true true 270 75 225 30 30 225 75 270
+Polygon -7500403 true true 30 75 75 30 270 225 225 270
+
 pentagon
 false
 0
@@ -1053,12 +1050,6 @@ false
 Polygon -16777216 true false 253 133 245 131 245 133
 Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
 Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
-
-x
-false
-0
-Polygon -7500403 true true 270 75 225 30 30 225 75 270
-Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
 NetLogo 6.4.0
 @#$#@#$#@

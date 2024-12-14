@@ -3,7 +3,7 @@ breed [personas persona]
 breed [charcos charco]
 breed [huevos huevo]
 
-globals [ultimo-movimiento-charcos tick-de-muerte-lista promedio-ticks-muerte]
+globals [ultimo-movimiento-charcos tick-de-muerte-lista promedio-ticks-muerte tiempo]
 
 mosquitos-own [
   ya-pico?
@@ -12,9 +12,9 @@ mosquitos-own [
 ]
 
 charcos-own [
-  incubando?
-  tick-de-incubacion
-  huevos-infectados?
+  ;;incubando?
+  ;;tick-de-incubacion
+  ;;huevos-infectados?
 ]
 
 personas-own [
@@ -28,6 +28,7 @@ huevos-own [
   edad
   incubando?
   en-charco?
+  infectado?
 ]
 
 to vacunar-poblacion
@@ -60,8 +61,6 @@ to setup
 
   set ultimo-movimiento-charcos 0
   set tick-de-muerte-lista []
-
-  ;import-drawing "Mapa_La_Plata.jpg"
 
   create-personas Poblacion [
     setxy random-xcor random-ycor
@@ -102,8 +101,8 @@ to setup
     setxy random-pxcor random-pycor
     set shape "circle"
     set color blue
-    set incubando? false
-    set huevos-infectados? false
+    ;;set incubando? false
+    ;;set huevos-infectados? false
   ]
 end
 
@@ -111,39 +110,57 @@ to actualizar-plot-tick-de-muerte [var]
   set-current-plot "Distribucion de vida de mosquitos"
   plot (var * mul_ticks) / 24 ;; muestra el grafico en dias
 end
+to actualizar-plot-picaduras-por-mosquito [var]
+  set-current-plot "Distribucion de picaduras por vida de mosquito"
+  plot (cant-picaduras)
+end
 
 to go
   tick
-
+  set tiempo (ticks * mul_ticks) / 24
   mover-charcos-aleatorios
   matar-mosquitos-viejos
   incubar-huevos
 
-  ask mosquitos with [not ya-pico?] [
-    rt random 100
-    lt random 100
-    fd (velocidad-mosquito-ticks * mul_ticks)
-  ]
+  ;;ask mosquitos with [not ya-pico?] [
+
+  ;;  rt random 100
+  ;;  lt random 100
+  ;;  fd (velocidad-mosquito-ticks * mul_ticks)
+  ;;]
 
 ask mosquitos with [ya-pico?] [
-  let charco-mas-cercano min-one-of(charcos)[distance myself]
-  face charco-mas-cercano
-  if distance charco-mas-cercano <= 1 [
+  let charco-mas-cercano min-one-of charcos [distance myself]
+
+  ;; Solo permitir que el mosquito se gire hacia el charco si está dentro de 5 unidades
+  if distance charco-mas-cercano <= 4 [
+    face charco-mas-cercano
+  ]
+
+  ;; Solo permitir que deposite los huevos si está en la posición del charco
+  if distance charco-mas-cercano <= 0.01 [
     ;; Depositar huevo en el charco más cercano
     ask charco-mas-cercano [
-      hatch-huevos 1 [
-        setxy [xcor] of charco-mas-cercano [ycor] of charco-mas-cercano
+      hatch-huevos cantidad-de-huevos-por-charco [
+        setxy [xcor] of charco-mas-cercano [ycor] of charco-mas-cercano ;;se depositan N huevos en la posición del charco
         set color white
         set edad 0
         set incubando? true
+        set infectado? ([color] of myself = orange)
       ]
     ]
     set ya-pico? false
+    set color yellow
   ]
+
+  ;; Mover el mosquito después de depositar el huevo
+  mover-mosquito
 ]
+
 
   ;; Modificada la lógica de infección para considerar la vacunación
   ask personas with [color = green or color = violet] [
+    mover-persona
     if (count (mosquitos-here with [color = orange and not ya-pico?]) > 0) [
       ifelse vacunado? [
 
@@ -161,56 +178,97 @@ ask mosquitos with [ya-pico?] [
     ]
   ]
 
-  ask mosquitos with [not ya-pico?] [
-    let personas-en-el-mismo-lugar personas-here
+ask mosquitos with [not ya-pico?] [
+  let personas-en-el-mismo-lugar personas-here
 
-    if any? personas-en-el-mismo-lugar with [color = red] [
-      set color orange
+  ;; Verificar si hay personas infectadas
+  if any? personas-en-el-mismo-lugar with [color = red] [
+    let persona-infectada one-of personas-en-el-mismo-lugar with [color = red]
+      if random 100 < 10 [ die ] ;; 10 % de probabilidad de morir antes de poder picar
+    ;; Si la persona está vacunada, usar la probabilidad correspondiente
+    if persona-infectada != nobody [
+      if [vacunado?] of persona-infectada [
+        ;; Probabilidad de infección si la persona está vacunada
+        if random 100 < chance_infeccion_personaVacunada_a_mosquito [
+          set color orange
+        ]
+      ]
+      if [not vacunado?] of persona-infectada [
+        ;; Probabilidad de infección si la persona no está vacunada
+        if random 100 < chance_infeccion_persona_a_mosquito [
+          set color orange
+        ]
+      ]
     ]
-
-    if count (personas-en-el-mismo-lugar) > 0 [
-      set ya-pico? true
-      set cant-picaduras (cant-picaduras + 1)
-    ]
+    if random 100 < 20 [ die ] ;; 25% de probabilidad de morir luego de picar
   ]
 
-  eclosionar-huevos
+  ;; Si el mosquito ha picado a una persona, cambiar su estado y contar la picadura
+  if count (personas-en-el-mismo-lugar) > 0 [
+    set ya-pico? true
+    set color white
+    set cant-picaduras (cant-picaduras + 1)
+  ]
+
+  ;; Movimiento del mosquito hacia la persona más cercana
+  let persona-cercana one-of personas in-radius 1
+
+  if persona-cercana != nobody [ ;; Si hay una persona cerca, el mosquito la sigue
+    face persona-cercana
+    fd velocidad-mosquito-ticks * mul_ticks
+  ]
+  if persona-cercana = nobody [
+    mover-mosquito
+  ]
+]
+
+
+  ;;eclosionar-huevos
   curar-gente
   terminar-inmunidad
 end
 
 to mover-mosquito
-    fd 1
+    rt random 100
+    lt random 100
+    fd velocidad-mosquito-ticks * mul_ticks
+end
+
+to mover-persona
+  rt random 100
+  lt random 100
+  fd velocidad-mosquito-ticks * evacion-personas * mul_ticks  ;; Personas se mueven n veces más rápido que los mosquitos
 end
 
 to matar-mosquitos-viejos
   ask mosquitos [
-    if (tick-de-muerte <= ticks) or cant-picaduras > 4 [
+    if (tick-de-muerte <= ticks)[ ;;or cant-picaduras > 4 [
+      actualizar-plot-picaduras-por-mosquito cant-picaduras
       die
     ]
   ]
 end
 
-to eclosionar-huevos
-  ask charcos with [color = 75] [
-    if (tick-de-incubacion <= ticks) [
-      generar-mosquitos huevos-infectados?
-      set color blue
-      set incubando? false
-      set tick-de-incubacion 0
-    ]
-  ]
-end
+;;to eclosionar-huevos
+;;  ask charcos with [color = 75] [
+;;    if (tick-de-incubacion <= ticks) [
+;;      generar-mosquitos huevos-infectados?
+;;      set color blue
+;;      set incubando? false
+;;      set tick-de-incubacion 0
+;;    ]
+;;  ]
+;;end
 
 to generar-mosquitos [infectados?]
-  hatch-mosquitos cantidad-de-huevos-por-charco [
+  hatch-mosquitos 1 [
     set color yellow
     set shape "mosquito"
     set ya-pico? false
     set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks) ;; vivira entre max y min (parametros de entrada)
     set cant-picaduras 0
 
-    if infectados? and (random 100 < 50) [ set color orange ]
+    if infectados? and (random 100 < 10) [ set color orange ] ;; Solo el 10% de probabilidad de transmision de infeccion por huevos
   ]
 end
 
@@ -229,22 +287,29 @@ end
 
 to incubar-huevos
   ask huevos [
-    if incubando? [
-      set edad edad + 1
-      if edad >= 120 [
-        ;; Generar hasta 10 mosquitos si el huevo ha estado suficiente tiempo
-        hatch-mosquitos 10 [
-          set color yellow
-          set shape "mosquito"
-          set ya-pico? false
-          set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks)
-          set cant-picaduras 0
-        ]
-        die
+    set edad edad + 1
+    ;; Verificar si está en un charco
+    if any? charcos-here [
+      ;; Si hay un charco y no está incubando, reiniciar la incubación
+      if not incubando? [
+        set incubando? true
+      ]
+      if edad >= (tiempo-max-incubacion * 24) / mul_ticks [
+        generar-mosquitos infectado?
+        die ;; El huevo eclosiona y desaparece
       ]
     ]
+
+    if not any? charcos-here [
+      set incubando? false ;;sin agua no hay incubacion
+    ]
+    if edad >= 120 * 24 / mul_ticks [
+      die
+    ] ;;si pasan mas de 120 mueren los huevos
   ]
 end
+
+
 
 to terminar-inmunidad
   ask personas with [color = violet] [
@@ -256,12 +321,12 @@ to terminar-inmunidad
 end
 
 to mover-charcos-aleatorios
-  if ticks - ultimo-movimiento-charcos >= 100 [
+  if ticks - ultimo-movimiento-charcos >=  * mul_ticks [
     set ultimo-movimiento-charcos ticks
     let charcos-a-mover n-of (ceiling (0.05 * count charcos)) charcos ;;se mueve el 5% de los charcos
     ask charcos-a-mover [
       rt random 360
-      fd 1
+      fd 10
     ]
   ]
 end
@@ -353,7 +418,7 @@ Poblacion
 Poblacion
 0
 200
-15.0
+20.0
 1
 1
 NIL
@@ -368,7 +433,7 @@ cant-charcos
 cant-charcos
 0
 100
-80.0
+15.0
 1
 1
 NIL
@@ -383,7 +448,7 @@ cant-mosquitos
 cant-mosquitos
 1
 1000
-172.0
+60.0
 1
 1
 NIL
@@ -413,7 +478,7 @@ cant-mosquitos-infectados
 cant-mosquitos-infectados
 0
 cant-mosquitos
-1.0
+0.0
 1
 1
 NIL
@@ -480,9 +545,9 @@ SLIDER
 179
 cantidad-de-huevos-por-charco
 cantidad-de-huevos-por-charco
-1
+0
 50
-7.0
+10.0
 1
 1
 NIL
@@ -554,25 +619,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-291
-531
-503
-564
+293
+532
+505
+565
 vida-min-mosquitos
 vida-min-mosquitos
 0
 100
-14.0
+10.0
 1
 1
 Dias
 HORIZONTAL
 
 SLIDER
-293
-580
-506
-613
+521
+532
+734
+565
 vida-max-mosquitos
 vida-max-mosquitos
 0
@@ -595,7 +660,7 @@ mul_ticks
 1.0
 1
 1
-Mutliplicador ticks x horas
+horas por tick
 HORIZONTAL
 
 SLIDER
@@ -683,7 +748,7 @@ SLIDER
 481
 tiempo-min-incubacion
 tiempo-min-incubacion
-7
+1
 10
 7.0
 1
@@ -707,16 +772,90 @@ En dias
 HORIZONTAL
 
 SLIDER
-233
-620
+7
 570
-653
+344
+603
 velocidad-mosquito-ticks
 velocidad-mosquito-ticks
-0.01
+0.1
 2
-0.21
-0.2
+0.1
+0.1
+1
+NIL
+HORIZONTAL
+
+PLOT
+829
+628
+1142
+778
+Distribucion de picaduras por vida de mosquito
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"asdf" 1.0 0 -16777216 true "" "plot cant_picaduras_lista"
+
+MONITOR
+1068
+315
+1125
+360
+NIL
+tiempo
+17
+1
+11
+
+SLIDER
+357
+571
+695
+604
+evacion-personas
+evacion-personas
+0
+10
+3.0
+1
+1
+X vel. mosquito
+HORIZONTAL
+
+SLIDER
+8
+613
+309
+646
+chance_infeccion_persona_a_mosquito
+chance_infeccion_persona_a_mosquito
+0
+100
+70.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+316
+614
+680
+647
+chance_infeccion_personaVacunada_a_mosquito
+chance_infeccion_personaVacunada_a_mosquito
+0
+100
+40.0
+1
 1
 NIL
 HORIZONTAL

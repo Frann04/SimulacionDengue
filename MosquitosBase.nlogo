@@ -3,7 +3,7 @@ breed [personas persona]
 breed [charcos charco]
 breed [huevos huevo]
 
-globals [ultimo-movimiento-charcos tick-de-muerte-lista promedio-ticks-muerte tiempo]
+globals [ultimo-movimiento-charcos tick-de-muerte-lista promedio-ticks-muerte tiempo_dias tiempo_horas]
 
 mosquitos-own [
   ya-pico?
@@ -55,6 +55,139 @@ to actualizar-plot
   plot promedio-ticks-muerte
 end
 
+to actualizar-plot-tick-de-muerte [var]
+  set-current-plot "Distribucion de vida de mosquitos"
+  plot (var * mul_ticks) / 24 ;; muestra el grafico en dias
+end
+to actualizar-plot-picaduras-por-mosquito [var]
+  set-current-plot "Distribucion de picaduras por vida de mosquito"
+  plot (cant-picaduras)
+end
+
+to mover-mosquito
+    rt random 100
+    lt random 100
+    fd velocidad-mosquito-ticks * mul_ticks
+end
+
+to mover-persona
+  rt random 100
+  lt random 100
+  fd velocidad-mosquito-ticks * evacion-personas * mul_ticks  ;; Personas se mueven n veces más rápido que los mosquitos
+end
+
+to matar-mosquitos-viejos
+  ask mosquitos [
+    if (tick-de-muerte <= ticks)[ ;;or cant-picaduras > 4 [
+      actualizar-plot-picaduras-por-mosquito cant-picaduras
+      die
+    ]
+  ]
+end
+
+to generar-mosquitos [infectados?]
+  hatch-mosquitos 1 [
+    set color yellow
+    set shape "mosquito"
+    set ya-pico? false
+    set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks) ;; vivira entre max y min (parametros de entrada)
+    set cant-picaduras 0
+
+    if infectados? and (random 100 < prob-transmision-mosquito-a-huevo) [ set color orange ] ;; Solo el 50% de probabilidad de transmision de infeccion por huevos
+  ]
+end
+
+to curar-gente
+  ask personas with [color = red] [
+    if duracion-de-enfermedad <= ticks [ ;;paso el tiempo de enfermedad (tick actual es mayor que tick de curacion)
+      ifelse vacunado? [
+        set color violet  ;; Las personas vacunadas vuelven a violet
+      ] [
+        set color green   ;; Las no vacunadas vuelven a verde
+      ]
+      set duracion-de-enfermedad 0
+    ]
+  ]
+end
+
+to incubar-huevos
+  ask huevos [
+    set edad edad + 1
+    ;; Verificar si está en un charco
+    if any? charcos-here [
+      ;; Si hay un charco y no está incubando, reiniciar la incubación
+      if not incubando? [
+        set incubando? true
+      ]
+      if edad >= (tiempo-max-incubacion * 24) / mul_ticks [
+        generar-mosquitos infectado?
+        die ;; El huevo eclosiona y desaparece
+      ]
+    ]
+
+    if not any? charcos-here [
+      set incubando? false ;;sin agua no hay incubacion
+    ]
+    if edad >= (120 * 24) / mul_ticks [
+      die
+    ] ;;si pasan mas de 120 mueren los huevos
+  ]
+end
+
+to regular-mosquitos
+  let total-mosquitos count mosquitos
+  let mosquitos-iniciales cant-mosquitos ;; Variable global del valor inicial
+
+  ;; Evitar errores si no hay mosquitos
+  if total-mosquitos = 0 [ stop ]
+
+  ;; Calcular el factor de incremento respecto al valor inicial
+  let factor-incremento total-mosquitos / mosquitos-iniciales
+
+  ;; Definir el porcentaje dinámico a eliminar basado en el factor de incremento
+  let porcentaje-a-eliminar 0
+
+  ;; Ajustar el porcentaje según el factor
+  if factor-incremento >= 15 [
+    set porcentaje-a-eliminar 10 + ((factor-incremento - 15) * 10)
+    if porcentaje-a-eliminar > 80 [
+      set porcentaje-a-eliminar 80 ;; Limitar el porcentaje máximo al 80%
+    ]
+  ]
+
+  ;; Eliminar el porcentaje calculado de mosquitos si es mayor a 0
+  if porcentaje-a-eliminar > 0 [
+    let mosquitos-a-eliminar n-of (round (total-mosquitos * porcentaje-a-eliminar / 100)) mosquitos
+    ask mosquitos-a-eliminar [
+      die
+    ]
+    ;; Mensaje para monitorear la regulacion de mosquitos
+    ;;show (word "Eliminados " count mosquitos-a-eliminar " mosquitos (" porcentaje-a-eliminar "%).")
+  ]
+end
+
+to terminar-inmunidad
+  ask personas with [color = violet] [
+    if (ticks = tick-fin-inmunidad) [  ; Check if N ticks (days) have passed since vaccination
+      set color green   ; Unvaccinated persons return to green
+      set vacunado? false
+    ]
+  ]
+end
+
+to mover-charcos-aleatorios
+  if tiempo_dias - ultimo-movimiento-charcos >= movimiento_charcos [
+    set ultimo-movimiento-charcos tiempo_dias
+    let charcos-a-mover n-of (ceiling (0.15 * count charcos)) charcos ;;se mueve el 5% de los charcos
+    ask charcos-a-mover [
+      rt random 360
+      fd 15
+    ]
+  ]
+end
+
+;;______________________________________Setup inicial_____________________________________________________________________________
+
 to setup
   clear-all
   reset-ticks
@@ -101,27 +234,19 @@ to setup
     setxy random-pxcor random-pycor
     set shape "circle"
     set color blue
-    ;;set incubando? false
-    ;;set huevos-infectados? false
   ]
 end
 
-to actualizar-plot-tick-de-muerte [var]
-  set-current-plot "Distribucion de vida de mosquitos"
-  plot (var * mul_ticks) / 24 ;; muestra el grafico en dias
-end
-to actualizar-plot-picaduras-por-mosquito [var]
-  set-current-plot "Distribucion de picaduras por vida de mosquito"
-  plot (cant-picaduras)
-end
+;;______________________________________Bucle principal_____________________________________________________________________________
 
 to go
   tick
-  set tiempo (ticks * mul_ticks) / 24
+  set tiempo_dias (ticks * mul_ticks) / 24
+  set tiempo_horas (ticks * mul_ticks)
   mover-charcos-aleatorios
   matar-mosquitos-viejos
   incubar-huevos
-  ;;regular-mosquitos
+  regular-mosquitos
 
 ask mosquitos with [ya-pico?] [
   let charco-mas-cercano min-one-of charcos [distance myself]
@@ -179,31 +304,32 @@ ask mosquitos with [ya-pico?] [
 
 ask mosquitos with [not ya-pico?] [
   let personas-en-el-mismo-lugar personas-here
-
-  ;; Verificar si hay personas infectadas
-  if any? personas-en-el-mismo-lugar with [color = red] [
-    let persona-infectada one-of personas-en-el-mismo-lugar with [color = red]
-      if random 100 < 10 [ die ] ;; 10 % de probabilidad de morir antes de poder picar
-    ;; Si la persona está vacunada, usar la probabilidad correspondiente
-    if persona-infectada != nobody [
-      if [vacunado?] of persona-infectada [
-        ;; Probabilidad de infección si la persona está vacunada
-        if random 100 < chance_infeccion_personaVacunada_a_mosquito [
-          set color orange
+  let picar (random 100 < probabilidad_picar_persona)
+  if picar [
+      ;; Verificar si hay personas infectadas
+      if (any? personas-en-el-mismo-lugar with [color = red]) [
+        let persona-infectada one-of personas-en-el-mismo-lugar with [color = red]
+        if random 100 < 10 [ die ] ;; 10 % de probabilidad de morir antes de poder picar
+                                   ;; Si la persona está vacunada, usar la probabilidad correspondiente
+        if persona-infectada != nobody [
+          if [vacunado?] of persona-infectada [
+            ;; Probabilidad de infección si la persona está vacunada
+            if random 100 < chance_infeccion_personaVacunada_a_mosquito [
+              set color orange
+            ]
+          ]
+          if [not vacunado?] of persona-infectada [
+            ;; Probabilidad de infección si la persona no está vacunada
+            if random 100 < chance_infeccion_persona_a_mosquito [
+              set color orange
+            ]
+          ]
         ]
+        if random 100 < 20 [ die ] ;; 25% de probabilidad de morir luego de picar
       ]
-      if [not vacunado?] of persona-infectada [
-        ;; Probabilidad de infección si la persona no está vacunada
-        if random 100 < chance_infeccion_persona_a_mosquito [
-          set color orange
-        ]
-      ]
-    ]
-    if random 100 < 20 [ die ] ;; 25% de probabilidad de morir luego de picar
-  ]
-
+   ]
   ;; Si el mosquito ha picado a una persona, cambiar su estado y contar la picadura
-  if count (personas-en-el-mismo-lugar) > 0 [
+  if count (personas-en-el-mismo-lugar) > 0 and picar [
     set ya-pico? true
     ;;set color white
     set cant-picaduras (cant-picaduras + 1)
@@ -226,139 +352,7 @@ ask mosquitos with [not ya-pico?] [
   curar-gente
   terminar-inmunidad
 end
-
-to mover-mosquito
-    rt random 100
-    lt random 100
-    fd velocidad-mosquito-ticks * mul_ticks
-end
-
-to mover-persona
-  rt random 100
-  lt random 100
-  fd velocidad-mosquito-ticks * evacion-personas * mul_ticks  ;; Personas se mueven n veces más rápido que los mosquitos
-end
-
-to matar-mosquitos-viejos
-  ask mosquitos [
-    if (tick-de-muerte <= ticks)[ ;;or cant-picaduras > 4 [
-      actualizar-plot-picaduras-por-mosquito cant-picaduras
-      die
-    ]
-  ]
-end
-
-;;to eclosionar-huevos
-;;  ask charcos with [color = 75] [
-;;    if (tick-de-incubacion <= ticks) [
-;;      generar-mosquitos huevos-infectados?
-;;      set color blue
-;;      set incubando? false
-;;      set tick-de-incubacion 0
-;;    ]
-;;  ]
-;;end
-
-to generar-mosquitos [infectados?]
-  hatch-mosquitos 1 [
-    set color yellow
-    set shape "mosquito"
-    set ya-pico? false
-    set tick-de-muerte ticks + ((((random (vida-max-mosquitos - vida-min-mosquitos)) + vida-min-mosquitos) * 24) / mul_ticks) ;; vivira entre max y min (parametros de entrada)
-    set cant-picaduras 0
-
-    if infectados? and (random 100 < prob-transmision-mosquito-a-huevo) [ set color orange ] ;; Solo el 50% de probabilidad de transmision de infeccion por huevos
-  ]
-end
-
-to curar-gente
-  ask personas with [color = red] [
-    if duracion-de-enfermedad <= ticks [ ;;paso el tiempo de enfermedad (tick actual es mayor que tick de curacion)
-      ifelse vacunado? [
-        set color violet  ;; Las personas vacunadas vuelven a violet
-      ] [
-        set color green   ;; Las no vacunadas vuelven a verde
-      ]
-      set duracion-de-enfermedad 0
-    ]
-  ]
-end
-
-to incubar-huevos
-  ask huevos [
-    set edad edad + 1
-    ;; Verificar si está en un charco
-    if any? charcos-here [
-      ;; Si hay un charco y no está incubando, reiniciar la incubación
-      if not incubando? [
-        set incubando? true
-      ]
-      if edad >= (tiempo-max-incubacion * 24) / mul_ticks [
-        generar-mosquitos infectado?
-        die ;; El huevo eclosiona y desaparece
-      ]
-    ]
-
-    if not any? charcos-here [
-      set incubando? false ;;sin agua no hay incubacion
-    ]
-    if edad >= 120 * 24 / mul_ticks [
-      die
-    ] ;;si pasan mas de 120 mueren los huevos
-  ]
-end
-
-to regular-mosquitos
-  let total-mosquitos count mosquitos
-  let mosquitos-iniciales cant-mosquitos ;; Variable global del valor inicial
-
-  ;; Evitar errores si no hay mosquitos
-  if total-mosquitos = 0 [ stop ]
-
-  ;; Calcular el factor de incremento respecto al valor inicial
-  let factor-incremento total-mosquitos / mosquitos-iniciales
-
-  ;; Definir el porcentaje dinámico a eliminar basado en el factor de incremento
-  let porcentaje-a-eliminar 0
-
-  ;; Ajustar el porcentaje según el factor
-  if factor-incremento >= 2 [
-    set porcentaje-a-eliminar 10 + ((factor-incremento - 2) * 10)
-    if porcentaje-a-eliminar > 80 [
-      set porcentaje-a-eliminar 80 ;; Limitar el porcentaje máximo al 80%
-    ]
-  ]
-
-  ;; Eliminar el porcentaje calculado de mosquitos si es mayor a 0
-  if porcentaje-a-eliminar > 0 [
-    let mosquitos-a-eliminar n-of (round (total-mosquitos * porcentaje-a-eliminar / 100)) mosquitos
-    ask mosquitos-a-eliminar [
-      die
-    ]
-    ;; Mensaje opcional para monitorear la regulación
-    show (word "Eliminados " count mosquitos-a-eliminar " mosquitos (" porcentaje-a-eliminar "%).")
-  ]
-end
-
-to terminar-inmunidad
-  ask personas with [color = violet] [
-    if (ticks = tick-fin-inmunidad) [  ; Check if N ticks (days) have passed since vaccination
-      set color green   ; Unvaccinated persons return to green
-      set vacunado? false
-    ]
-  ]
-end
-
-to mover-charcos-aleatorios
-  if ticks - ultimo-movimiento-charcos >= movimiento_charcos * mul_ticks [
-    set ultimo-movimiento-charcos ticks
-    let charcos-a-mover n-of (ceiling (0.05 * count charcos)) charcos ;;se mueve el 5% de los charcos
-    ask charcos-a-mover [
-      rt random 360
-      fd 10
-    ]
-  ]
-end
+;;______________________________________________________________________________________________________________________________________
 @#$#@#$#@
 GRAPHICS-WINDOW
 1167
@@ -447,7 +441,7 @@ Poblacion
 Poblacion
 0
 200
-13.0
+25.0
 1
 1
 NIL
@@ -477,7 +471,7 @@ cant-mosquitos
 cant-mosquitos
 1
 1000
-90.0
+80.0
 1
 1
 NIL
@@ -492,7 +486,7 @@ cant-personas-infectadas
 cant-personas-infectadas
 0
 Poblacion
-5.0
+1.0
 1
 1
 NIL
@@ -576,7 +570,7 @@ cantidad-de-huevos-por-charco
 cantidad-de-huevos-por-charco
 0
 50
-6.0
+4.0
 1
 1
 NIL
@@ -591,7 +585,7 @@ cantidad-a-vacunar
 cantidad-a-vacunar
 0
 100
-10.0
+13.0
 1
 1
 NIL
@@ -684,10 +678,10 @@ SLIDER
 481
 mul_ticks
 mul_ticks
-1
-25
+0.1
+6
 1.0
-1
+0.1
 1
 horas por tick
 HORIZONTAL
@@ -834,12 +828,12 @@ PENS
 "asdf" 1.0 0 -16777216 true "" "plot cant_picaduras_lista"
 
 MONITOR
-1068
-315
-1125
-360
+929
+341
+1015
+386
 NIL
-tiempo
+tiempo_dias
 17
 1
 11
@@ -883,7 +877,7 @@ chance_infeccion_personaVacunada_a_mosquito
 chance_infeccion_personaVacunada_a_mosquito
 0
 100
-50.0
+40.0
 1
 1
 NIL
@@ -898,7 +892,7 @@ prob-transmision-mosquito-a-huevo
 prob-transmision-mosquito-a-huevo
 0
 100
-20.0
+15.0
 1
 1
 NIL
@@ -911,12 +905,38 @@ SLIDER
 684
 movimiento_charcos
 movimiento_charcos
+1
+30
+4.0
+1
+1
+dias
+HORIZONTAL
+
+MONITOR
+931
+394
+1027
+439
+NIL
+tiempo_horas
+17
+1
+11
+
+SLIDER
+313
+691
+544
+724
+probabilidad_picar_persona
+probabilidad_picar_persona
 0
 100
-17.0
+50.0
+2
 1
-1
-ticks para mover
+NIL
 HORIZONTAL
 
 @#$#@#$#@

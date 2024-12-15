@@ -12,9 +12,6 @@ mosquitos-own [
 ]
 
 charcos-own [
-  ;;incubando?
-  ;;tick-de-incubacion
-  ;;huevos-infectados?
 ]
 
 personas-own [
@@ -26,8 +23,7 @@ personas-own [
 
 huevos-own [
   edad
-  incubando?
-  en-charco?
+  ;;incubando?
   infectado?
 ]
 
@@ -116,18 +112,18 @@ to incubar-huevos
     ;; Verificar si está en un charco
     if any? charcos-here [
       ;; Si hay un charco y no está incubando, reiniciar la incubación
-      if not incubando? [
-        set incubando? true
-      ]
+      ;;if not incubando? [
+      ;;  set incubando? true
+      ;;]
       if edad >= (tiempo-max-incubacion * 24) / mul_ticks [
         generar-mosquitos infectado?
         die ;; El huevo eclosiona y desaparece
       ]
     ]
 
-    if not any? charcos-here [
-      set incubando? false ;;sin agua no hay incubacion
-    ]
+    ;;if not any? charcos-here [
+    ;;  set incubando? false ;;sin agua no hay incubacion
+    ;;]
     if edad >= (120 * 24) / mul_ticks [
       die
     ] ;;si pasan mas de 120 mueren los huevos
@@ -266,7 +262,7 @@ ask mosquitos with [ya-pico?] [
       hatch-huevos cantidad-de-huevos-por-charco [
         setxy [xcor] of charco-mas-cercano [ycor] of charco-mas-cercano ;; Se depositan en la posición del charco
         set edad 0
-        set incubando? true
+        ;set incubando? true
         set infectado? mosquito_infectado?  ;; Usar la variable del mosquito
         if infectado? [ set color red ] ;; Cambiar color según infección
         if not infectado? [ set color white ]
@@ -478,25 +474,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-93
-58
-263
-91
-cant-personas-infectadas
-cant-personas-infectadas
-0
-Poblacion
-1.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-270
-58
-452
-91
+284
+61
+466
+94
 cant-mosquitos-infectados
 cant-mosquitos-infectados
 0
@@ -570,7 +551,7 @@ cantidad-de-huevos-por-charco
 cantidad-de-huevos-por-charco
 0
 50
-4.0
+6.0
 1
 1
 NIL
@@ -584,8 +565,8 @@ SLIDER
 cantidad-a-vacunar
 cantidad-a-vacunar
 0
-100
-13.0
+Poblacion
+15.0
 1
 1
 NIL
@@ -772,8 +753,8 @@ SLIDER
 tiempo-min-incubacion
 tiempo-min-incubacion
 1
-10
-7.0
+20
+8.0
 1
 1
 En dias
@@ -787,8 +768,8 @@ SLIDER
 tiempo-max-incubacion
 tiempo-max-incubacion
 7
-10
-10.0
+25
+22.0
 1
 1
 En dias
@@ -847,7 +828,7 @@ evacion-personas
 evacion-personas
 0
 10
-3.0
+2.0
 1
 1
 X vel. mosquito
@@ -907,7 +888,7 @@ movimiento_charcos
 movimiento_charcos
 1
 30
-4.0
+8.0
 1
 1
 dias
@@ -935,6 +916,21 @@ probabilidad_picar_persona
 100
 50.0
 2
+1
+NIL
+HORIZONTAL
+
+SLIDER
+90
+59
+273
+92
+cant-personas-infectadas
+cant-personas-infectadas
+0
+Poblacion
+25.0
+1
 1
 NIL
 HORIZONTAL
